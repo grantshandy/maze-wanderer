@@ -1,82 +1,84 @@
 #![no_std]
 
-use heapless::{String, Vec};
+use heapless::Vec;
 
-// the max x / y size of the map
-const MAX_MAP_SIZE: usize = 30;
+mod maps;
 
-// the max size of the textual representation
-// 1 is added to each line for the newline (\n) character
-const MAX_MAP_BUFFER_SIZE: usize = MAX_MAP_SIZE * (MAX_MAP_SIZE + 1);
+use maps::DEFAULT_MAP;
 
-// a simplified type that represents the in-memory
-// map.
-type Map = Vec<Vec<u8, MAX_MAP_SIZE>, MAX_MAP_SIZE>;
+// square screen size
+pub const SCREEN_SIZE: u16 = 640;
 
-pub const SCREEN_WIDTH: u16 = 640;
-pub const SCREEN_HEIGHT: u16 = 480;
+// the maximum x / y size of the map
+pub const MAX_MAP_SIZE: usize = 32;
 
-const DEFAULT_MAP: &str = include_str!("one.gmap");
+const MOVEMENT_STEP: f32 = 0.25;
 
+// a simplified type that represents the in-memory map.
+type WorldMap = Vec<Vec<bool, MAX_MAP_SIZE>, MAX_MAP_SIZE>;
+
+// backing state for the entire application
 pub struct State {
-    world_map: Map,
+    map: WorldMap,
     player: Player,
 }
 
 impl Default for State {
     fn default() -> Self {
         Self {
-            player: Player::default(),
-            world_map: generate_map(DEFAULT_MAP),
+            map: to_worldmap(DEFAULT_MAP),
+            player: Player {
+                pos_x: 5.5,
+                pos_y: 12.5,
+                direction: 0.0,
+            },
         }
     }
 }
 
 impl State {
-    pub fn world_map(&self) -> &Vec<Vec<u8, MAX_MAP_SIZE>, MAX_MAP_SIZE> {
-        &self.world_map
+    pub fn run(&mut self) {}
+
+    pub fn player(&self) -> &Player {
+        &self.player
+    }
+
+    pub fn player_mut(&mut self) -> &mut Player {
+        &mut self.player
+    }
+
+    pub fn map(&self) -> &WorldMap {
+        &self.map
+    }
+
+    pub fn is_in_wall(&self, x: f32, y: f32) -> bool {
+        *self
+            .map
+            .get(y.round() as usize)
+            .map(|line| line.get(x.round() as usize).unwrap_or(&false))
+            .unwrap_or(&false)
     }
 }
 
-struct Player {
-    x: u32,
-    y: u32,
+#[derive(Clone, Copy)]
+pub struct Player {
+    pub pos_x: f32,
+    pub pos_y: f32,
+    pub direction: f32,
 }
 
-impl Default for Player {
-    fn default() -> Self {
-        Player { x: 22, y: 12 }
+impl Player {
+    pub fn move_forward(&mut self) {
+        self.pos_y += MOVEMENT_STEP;
+    }
+
+    pub fn move_backward(&mut self) {
+        self.pos_y -= MOVEMENT_STEP;
     }
 }
 
-pub fn generate_map(input: &str) -> Vec<Vec<u8, MAX_MAP_SIZE>, MAX_MAP_SIZE> {
-    // overall buffer from the input string
-    let input: String<MAX_MAP_BUFFER_SIZE> = String::from(input);
-
-    // soy face ascii art
-    input
-        .lines()
-        .map(|line: &str| {
-            let line_text: String<MAX_MAP_SIZE> = String::from(line);
-            let mut line_nums: Vec<u8, MAX_MAP_SIZE> = Vec::new();
-
-            for c in line_text.chars() {
-                line_nums.push(match c {
-                    '0' => 0,
-                    '1' => 1,
-                    '2' => 2,
-                    '3' => 3,
-                    '4' => 4,
-                    '5' => 5,
-                    '6' => 6,
-                    '7' => 7,
-                    '8' => 8,
-                    '9' => 9,
-                    _ => 0,
-                }).expect("line too large");
-            }
-
-            line_nums
-        })
+fn to_worldmap(raw: &[&[bool]]) -> WorldMap {
+    raw.iter()
+        .map(|line| Vec::from_slice(line).unwrap())
         .collect()
 }

@@ -52,6 +52,7 @@ async fn main() {
 // this makes the code slightly easier to read.
 const SCREEN_OFFSET: f32 = SCREEN_SIZE as f32;
 
+// TODO: remove this
 static mut COUNTER: i32 = 0;
 static mut FPS: i32 = 0;
 
@@ -65,7 +66,7 @@ fn draw_pov(_state: &State) {
         DARKGRAY,
     );
     
-    // slow fps counter with sloppy implementation
+    // slowed down fps counter with sloppy implementation
     unsafe {
         if COUNTER > 15 {
             COUNTER = 0;
@@ -112,18 +113,16 @@ fn draw_top_down(state: &State) {
         player.y * TOP_DOWN_CELL_SIZE as f32,
     );
 
-    // draw raycasts
-    for angle in -45..45 {
-        let (raycast_x, raycast_y) = state.raycast(angle as f32 / 50.0);
-        draw_line(
-            adj_player_x,
-            adj_player_y,
-            adj_player_x + raycast_x * TOP_DOWN_CELL_SIZE as f32,
-            adj_player_y + raycast_y * TOP_DOWN_CELL_SIZE as f32,
-            0.5,
-            GREEN,
-        );
-    }
+    // draw single raycast
+    let (raycast_x, raycast_y) = state.raycast(0.0);
+    draw_line(
+        adj_player_x,
+        adj_player_y,
+        adj_player_x + raycast_x * TOP_DOWN_CELL_SIZE as f32,
+        adj_player_y + raycast_y * TOP_DOWN_CELL_SIZE as f32,
+        1.5,
+        GREEN,
+    );
 
     // draw view line
     draw_line(

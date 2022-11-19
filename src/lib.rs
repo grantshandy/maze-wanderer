@@ -3,7 +3,7 @@
 use core::f32::consts::{FRAC_PI_2, PI, TAU};
 
 use heapless::Vec;
-use libm::{ceilf, cosf, floorf, fminf, sinf, sqrtf, tanf};
+use libm::{ceilf, cosf, floorf, fminf, sinf, sqrtf, tanf, powf};
 
 mod maps;
 
@@ -57,63 +57,54 @@ impl State {
     pub fn raycast(&self, angle: f32) -> (f32, f32) {
         let ray_angle = self.player.angle + angle;
 
-        // This is the closest point on the grid that the ray intersects
+        let (mut fin_x, mut fin_y) = (0.0, 0.0);
+
+        // calculate the closest point on the grid that the ray intersects
         //
         // SEE https://lodev.org/cgtutor/images/raycastdelta.gif
-        // TODO: clean this up
-        let (mut fin_x, mut fin_y): (f32, f32) = {
-            let side_dist_x: ((f32, f32), f32) = {
-                let x = if ray_angle < FRAC_PI_2 || ray_angle > PI + FRAC_PI_2 {
-                    ceilf(self.player.x) - self.player.x
-                } else {
-                    floorf(self.player.x) - self.player.x
-                };
-                let y = tanf(ray_angle) * x;
 
-                ((x, y), sqrtf(x * x + y * y))
-            };
-
-            let side_dist_y: ((f32, f32), f32) = {
-                let y = if ray_angle < PI {
-                    ceilf(self.player.y) - self.player.y
-                } else {
-                    floorf(self.player.y) - self.player.y
-                };
-
-                let x = y / tanf(ray_angle);
-
-                ((x, y), sqrtf(x * x + y * y))
-            };
-
-            if side_dist_x.1 == fminf(side_dist_x.1, side_dist_y.1) {
-                side_dist_x.0
+        // closest point on the grid that intersects the x axis
+        let side_dist_x: (f32, f32) = {
+            let x = if !(FRAC_PI_2..=PI + FRAC_PI_2).contains(&ray_angle) {
+                ceilf(self.player.x) - self.player.x
             } else {
-                side_dist_y.0
-            }
+                floorf(self.player.x) - self.player.x
+            };
+
+            let y = tanf(ray_angle) * x;
+
+            (x, y)
         };
+        
+        // length of side dist x vector
+        let side_dist_x_len: f32 = sqrtf(powf(side_dist_x.0, 2.0) + powf(side_dist_x.1, 2.0));
 
-        // let mut depth: usize = 0;
+        // closest point on the grid that intersects the y axis
+        let side_dist_y: (f32, f32) = {
+            let y = if ray_angle < PI {
+                ceilf(self.player.y) - self.player.y
+            } else {
+                floorf(self.player.y) - self.player.y
+            };
 
-        // impossible extend past the max map size, so lets set it as that.
-        // while depth < MAX_MAP_SIZE {
-        //     if ray_angle < FRAC_PI_2 {
-        //         fin_y += 1.0;
-        //         fin_x += 1.0;
-        //     } else if ray_angle < PI {
-        //         fin_y += 1.0;
-        //         fin_x -= 1.0;
-        //     } else if ray_angle < PI + FRAC_PI_2 {
-        //         fin_y -= 1.0;
-        //         fin_x -= 1.0;
-        //     } else {
-        //         fin_y -= 1.0;
-        //         fin_x += 1.0;
-        //     }
-            
-        //     depth += 1;
-        // }
+            let x = y / tanf(ray_angle);
 
-        return (fin_x, fin_y);
+            (x, y)
+        };
+        
+        // length of side dist y vector
+        let side_dist_y_len: f32 = sqrtf(powf(side_dist_y.0, 2.0) + powf(side_dist_y.1, 2.0));
+
+        // add the smallest vector to the final vector
+        if side_dist_x_len == fminf(side_dist_x_len, side_dist_y_len) {
+            fin_x += side_dist_x.0;
+            fin_y += side_dist_x.1;
+        } else {
+            fin_x += side_dist_y.0;
+            fin_y += side_dist_y.1;
+        }
+
+        (fin_x, fin_y)
     }
 }
 

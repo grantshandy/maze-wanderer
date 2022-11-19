@@ -6,8 +6,7 @@ use raycaster::{self, State, MAX_MAP_SIZE, SCREEN_SIZE};
 const TOP_DOWN_CELL_SIZE: usize = SCREEN_SIZE as usize / MAX_MAP_SIZE;
 
 // length factor to visualize where the player is looking from dx/dy
-const VIEW_LINE_LENGTH_FACTOR: f32 = 300.0;
-
+const VIEW_LINE_LENGTH_FACTOR: f32 = 100.0;
 
 fn window_conf() -> Conf {
     Conf {
@@ -25,9 +24,6 @@ async fn main() {
     let mut state = State::default();
 
     loop {
-        draw_top_down(&state);
-        draw_pov(&state);
-
         // move player around a bit
         if is_key_down(KeyCode::W) {
             state.player_mut().move_forward();
@@ -45,14 +41,41 @@ async fn main() {
             state.player_mut().look_right();
         }
 
+        draw_top_down(&state);
+        draw_pov(&state);
+
         next_frame().await;
     }
 }
 
-// pov is drawn on the right so everything needs to be shifted
+// pov is drawn on the right so everything needs to be shifted.
+// this makes the code slightly easier to read.
 const SCREEN_OFFSET: f32 = SCREEN_SIZE as f32;
 
-fn draw_pov(state: &State) {
+static mut COUNTER: i32 = 0;
+static mut FPS: i32 = 0;
+
+fn draw_pov(_state: &State) {
+    // draw ceiling/floor
+    draw_rectangle(
+        SCREEN_OFFSET,
+        0.0,
+        SCREEN_SIZE as f32,
+        SCREEN_SIZE as f32,
+        DARKGRAY,
+    );
+    
+    // slow fps counter with sloppy implementation
+    unsafe {
+        if COUNTER > 15 {
+            COUNTER = 0;
+            FPS = get_fps();
+        } else {
+            COUNTER += 1;
+        }
+        
+        draw_text(&format!("{} FPS", FPS), SCREEN_OFFSET + 30.0, 60.0, 60.0, WHITE);
+    }
 }
 
 fn draw_top_down(state: &State) {
@@ -89,13 +112,26 @@ fn draw_top_down(state: &State) {
         player.y * TOP_DOWN_CELL_SIZE as f32,
     );
 
+    // draw raycasts
+    for angle in -45..45 {
+        let (raycast_x, raycast_y) = state.raycast(angle as f32 / 50.0);
+        draw_line(
+            adj_player_x,
+            adj_player_y,
+            adj_player_x + raycast_x * TOP_DOWN_CELL_SIZE as f32,
+            adj_player_y + raycast_y * TOP_DOWN_CELL_SIZE as f32,
+            0.5,
+            GREEN,
+        );
+    }
+
     // draw view line
     draw_line(
         adj_player_x,
         adj_player_y,
         adj_player_x + (player.dx * VIEW_LINE_LENGTH_FACTOR),
         adj_player_y + (player.dy * VIEW_LINE_LENGTH_FACTOR),
-        2.0,
+        3.0,
         YELLOW,
     );
 

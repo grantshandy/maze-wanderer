@@ -1,9 +1,9 @@
 #![no_std]
 
-use core::f32::consts::PI;
+use core::f32::consts::{FRAC_PI_2, PI, TAU};
 
 use heapless::Vec;
-use libm::{cosf, sinf};
+use libm::{ceilf, cosf, floorf, fminf, sinf, sqrtf, tanf};
 
 mod maps;
 
@@ -12,7 +12,6 @@ use maps::DEFAULT_MAP;
 // env constants
 pub const SCREEN_SIZE: u16 = 640;
 pub const MAX_MAP_SIZE: usize = 32;
-const TWO_PI: f32 = PI * 2.0;
 
 // gameplay constants
 const MOVEMENT_STEP: f32 = 0.07;
@@ -43,8 +42,6 @@ impl Default for State {
 }
 
 impl State {
-    pub fn run(&mut self) {}
-
     pub fn player(&self) -> &Player {
         &self.player
     }
@@ -57,12 +54,66 @@ impl State {
         &self.map
     }
 
-    pub fn is_in_wall(&self, x: f32, y: f32) -> bool {
-        *self
-            .map
-            .get(y.round() as usize)
-            .map(|line| line.get(x.round() as usize).unwrap_or(&false))
-            .unwrap_or(&false)
+    pub fn raycast(&self, angle: f32) -> (f32, f32) {
+        let ray_angle = self.player.angle + angle;
+
+        // This is the closest point on the grid that the ray intersects
+        //
+        // SEE https://lodev.org/cgtutor/images/raycastdelta.gif
+        // TODO: clean this up
+        let (mut fin_x, mut fin_y): (f32, f32) = {
+            let side_dist_x: ((f32, f32), f32) = {
+                let x = if ray_angle < FRAC_PI_2 || ray_angle > PI + FRAC_PI_2 {
+                    ceilf(self.player.x) - self.player.x
+                } else {
+                    floorf(self.player.x) - self.player.x
+                };
+                let y = tanf(ray_angle) * x;
+
+                ((x, y), sqrtf(x * x + y * y))
+            };
+
+            let side_dist_y: ((f32, f32), f32) = {
+                let y = if ray_angle < PI {
+                    ceilf(self.player.y) - self.player.y
+                } else {
+                    floorf(self.player.y) - self.player.y
+                };
+
+                let x = y / tanf(ray_angle);
+
+                ((x, y), sqrtf(x * x + y * y))
+            };
+
+            if side_dist_x.1 == fminf(side_dist_x.1, side_dist_y.1) {
+                side_dist_x.0
+            } else {
+                side_dist_y.0
+            }
+        };
+
+        // let mut depth: usize = 0;
+
+        // impossible extend past the max map size, so lets set it as that.
+        // while depth < MAX_MAP_SIZE {
+        //     if ray_angle < FRAC_PI_2 {
+        //         fin_y += 1.0;
+        //         fin_x += 1.0;
+        //     } else if ray_angle < PI {
+        //         fin_y += 1.0;
+        //         fin_x -= 1.0;
+        //     } else if ray_angle < PI + FRAC_PI_2 {
+        //         fin_y -= 1.0;
+        //         fin_x -= 1.0;
+        //     } else {
+        //         fin_y -= 1.0;
+        //         fin_x += 1.0;
+        //     }
+            
+        //     depth += 1;
+        // }
+
+        return (fin_x, fin_y);
     }
 }
 
@@ -105,15 +156,15 @@ impl Player {
 
     pub fn look_right(&mut self) {
         self.angle += LOOK_STEP;
-        
+
         self.calc_new_angle();
     }
-    
+
     // also created to reduce number of wasm instructions
     fn calc_new_angle(&mut self) {
         if self.angle < 0.0 {
-            self.angle = TWO_PI;
-        } else if self.angle > TWO_PI {
+            self.angle = TAU;
+        } else if self.angle > TAU {
             self.angle = 0.0;
         }
 

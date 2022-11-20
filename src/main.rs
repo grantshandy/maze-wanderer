@@ -114,7 +114,7 @@ fn draw_top_down(state: &State) {
     );
 
     // draw single raycast
-    let (raycast_x, raycast_y) = state.raycast(0.0);
+    let ((raycast_x, raycast_y), intersections) = state.raycast_from_player(0.0);
     draw_line(
         adj_player_x,
         adj_player_y,
@@ -123,17 +123,21 @@ fn draw_top_down(state: &State) {
         1.5,
         GREEN,
     );
+    
+    for (x, y) in intersections {
+        draw_circle((x + player.x) * TOP_DOWN_CELL_SIZE as f32, (y + player.y) * TOP_DOWN_CELL_SIZE as f32, 2.0, RED);
+    }
 
     // draw view line
-    draw_line(
-        adj_player_x,
-        adj_player_y,
-        adj_player_x + (player.dx * VIEW_LINE_LENGTH_FACTOR),
-        adj_player_y + (player.dy * VIEW_LINE_LENGTH_FACTOR),
-        3.0,
-        YELLOW,
-    );
+    // draw_line(
+    //     adj_player_x,
+    //     adj_player_y,
+    //     adj_player_x + (player.dx * VIEW_LINE_LENGTH_FACTOR),
+    //     adj_player_y + (player.dy * VIEW_LINE_LENGTH_FACTOR),
+    //     3.0,
+    //     YELLOW,
+    // );
 
     // draw player circle
-    draw_circle(adj_player_x, adj_player_y, 4.3, RED);
+    draw_circle(adj_player_x, adj_player_y, 3.0, RED);
 }

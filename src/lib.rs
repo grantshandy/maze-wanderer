@@ -1,9 +1,9 @@
-#![no_std]
+// #![no_std]
 
 use core::f32::consts::{FRAC_PI_2, PI, TAU};
 
 use heapless::Vec;
-use libm::{ceilf, cosf, floorf, fminf, sinf, sqrtf, tanf, powf};
+use libm::{ceilf, cosf, floorf, fminf, powf, sinf, sqrtf, tanf};
 
 mod maps;
 
@@ -16,6 +16,7 @@ pub const MAX_MAP_SIZE: usize = 32;
 // gameplay constants
 const MOVEMENT_STEP: f32 = 0.07;
 const LOOK_STEP: f32 = 0.07;
+const FOV: usize = 60;
 
 // a simplified type that represents the in-memory map.
 type WorldMap = Vec<Vec<bool, MAX_MAP_SIZE>, MAX_MAP_SIZE>;
@@ -24,6 +25,7 @@ type WorldMap = Vec<Vec<bool, MAX_MAP_SIZE>, MAX_MAP_SIZE>;
 pub struct State {
     map: WorldMap,
     player: Player,
+    pub projection_plane_dist: f32,
 }
 
 impl Default for State {
@@ -33,13 +35,16 @@ impl Default for State {
             player: Player {
                 x: 5.5,
                 y: 12.5,
-                dx: MOVEMENT_STEP,
+                dx: -MOVEMENT_STEP,
                 dy: 0.0,
-                angle: 0.0,
+                angle: PI,
             },
+            projection_plane_dist: (SCREEN_SIZE / 2) as f32 / tanf(FOV as f32 / 2.0),
         }
     }
 }
+
+const INTERSECTIONS_BUFFER: usize = 300;
 
 impl State {
     pub fn player(&self) -> &Player {
@@ -54,57 +59,143 @@ impl State {
         &self.map
     }
 
-    pub fn raycast(&self, angle: f32) -> (f32, f32) {
+    // FOLLOW https://www.permadi.com/tutorial/raycast/rayc7.html
+    pub fn raycast_from_player(
+        &self,
+        angle: f32,
+    ) -> ((f32, f32), Vec<(f32, f32), INTERSECTIONS_BUFFER>) {
         let ray_angle = self.player.angle + angle;
+        let mut intersections = Vec::new();
 
+        // where the raycast will (hopefully) hit
         let (mut fin_x, mut fin_y) = (0.0, 0.0);
 
-        // calculate the closest point on the grid that the ray intersects
-        //
-        // SEE https://lodev.org/cgtutor/images/raycastdelta.gif
+        // add closest point on the grid cast from the player
+        let (closest_x, closest_y) =
+            self.first_intersection(ray_angle, self.player.x, self.player.y);
+        fin_x += closest_x;
+        fin_y += closest_y;
 
-        // closest point on the grid that intersects the x axis
+        intersections.push((fin_x, fin_y)).unwrap();
+
+        // the vectors for the next intersections with the wall (supposedly)
+        let (hx, hy) = if ray_angle < PI && ray_angle > 0.0 {
+            (1.0 / tanf(ray_angle), 1.0)
+        } else if ray_angle > PI  && ray_angle < TAU {
+            (-1.0 / tanf(ray_angle), -1.0)
+        } else if ray_angle == TAU  || ray_angle == 0.0 {
+            (1.0, 0.0)
+        } else {
+            (-1.0, 0.0)
+        };
+        
+        fin_x += hx;
+        fin_y += hy;
+
+        // add to intersections for visual debugging
+        intersections.push((fin_x, fin_y)).expect("intersections overflow");
+
+        // let (_vx, _vy) = if (ray_angle > FRAC_PI_2 && ray_angle < PI + FRAC_PI_2) {
+        //     (-1.0, -tanf(ray_angle))
+        // } else {
+        //     (1.0, tanf(ray_angle))
+        // };
+
+        // TODO: this sort of thing
+        // if self.map[fin_y as usize][fin_x as usize] {
+        //     break;
+        // }
+
+        ((fin_x, fin_y), intersections)
+    }
+
+    fn first_intersection(&self, ray_angle: f32, origin_x: f32, origin_y: f32) -> (f32, f32) {
+        // closest point on the grid that intersects with the x axis
         let side_dist_x: (f32, f32) = {
-            let x = if !(FRAC_PI_2..=PI + FRAC_PI_2).contains(&ray_angle) {
-                ceilf(self.player.x) - self.player.x
+            let x = if !(FRAC_PI_2..PI + FRAC_PI_2).contains(&ray_angle) {
+                // facing right
+                ceilf(origin_x) - origin_x
             } else {
-                floorf(self.player.x) - self.player.x
+                // facing left
+                floorf(origin_x) - origin_x
             };
 
             let y = tanf(ray_angle) * x;
 
             (x, y)
         };
-        
+
         // length of side dist x vector
         let side_dist_x_len: f32 = sqrtf(powf(side_dist_x.0, 2.0) + powf(side_dist_x.1, 2.0));
 
         // closest point on the grid that intersects the y axis
         let side_dist_y: (f32, f32) = {
             let y = if ray_angle < PI {
-                ceilf(self.player.y) - self.player.y
+                // facing up
+                ceilf(origin_y) - origin_y
             } else {
-                floorf(self.player.y) - self.player.y
+                // facing down
+                floorf(origin_y) - origin_y
             };
 
             let x = y / tanf(ray_angle);
 
             (x, y)
         };
-        
+
         // length of side dist y vector
         let side_dist_y_len: f32 = sqrtf(powf(side_dist_y.0, 2.0) + powf(side_dist_y.1, 2.0));
 
         // add the smallest vector to the final vector
         if side_dist_x_len == fminf(side_dist_x_len, side_dist_y_len) {
-            fin_x += side_dist_x.0;
-            fin_y += side_dist_x.1;
+            side_dist_x
         } else {
-            fin_x += side_dist_y.0;
-            fin_y += side_dist_y.1;
+            side_dist_y
         }
+    }
 
-        (fin_x, fin_y)
+    fn next_intersection(&self, ray_angle: f32, origin_x: f32, origin_y: f32) -> (f32, f32) {
+        let side_dist_x: (f32, f32) = {
+            let x = if !(FRAC_PI_2..PI + FRAC_PI_2).contains(&ray_angle) {
+                // facing right
+                ceilf(origin_x) - origin_x
+            } else {
+                // facing left
+                floorf(origin_x) - origin_x
+            };
+
+            let y = tanf(ray_angle) * x;
+
+            (x, y)
+        };
+
+        // length of side dist x vector
+        let side_dist_x_len: f32 = sqrtf(powf(side_dist_x.0, 2.0) + powf(side_dist_x.1, 2.0));
+
+        // closest point on the grid that intersects the y axis
+        let side_dist_y: (f32, f32) = {
+            let y = if ray_angle < PI {
+                // facing up
+                ceilf(origin_y) - origin_y
+            } else {
+                // facing down
+                floorf(origin_y) - origin_y
+            };
+
+            let x = y / tanf(ray_angle);
+
+            (x, y)
+        };
+
+        // length of side dist y vector
+        let side_dist_y_len: f32 = sqrtf(powf(side_dist_y.0, 2.0) + powf(side_dist_y.1, 2.0));
+
+        // add the smallest vector to the final vector
+        if side_dist_x_len == fminf(side_dist_x_len, side_dist_y_len) {
+            side_dist_x
+        } else {
+            side_dist_y
+        }
     }
 }
 
@@ -155,7 +246,9 @@ impl Player {
     fn calc_new_angle(&mut self) {
         if self.angle < 0.0 {
             self.angle = TAU;
-        } else if self.angle > TAU {
+        }
+
+        if self.angle > TAU {
             self.angle = 0.0;
         }
 

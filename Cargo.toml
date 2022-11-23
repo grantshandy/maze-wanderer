@@ -5,7 +5,13 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[lib]
+crate-type = ["cdylib"]
+
 [dependencies]
-heapless = "0.7.16"
-libm = "0.2.6"
-macroquad = "0.3.25"
+heapless = "0.7"
+libm = "0.2"
+
+[profile.release]
+opt-level = "z"
+lto = true

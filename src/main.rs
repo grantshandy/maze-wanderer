@@ -34,7 +34,7 @@ async fn main() {
 
         draw_map(&state);
 
-        // println!("{}", state.player_angle);
+        println!("{}", state.player_angle);
         // println!(
         //     "current square: {}",
         //     (state.player_y as i32 * MAP_SIZE + state.player_x as i32)
@@ -91,16 +91,16 @@ fn draw_map(state: &State) {
     draw_line(
         state.player_x * (DISPLAY_SCALE * TILE_SIZE) as f32,
         state.player_y * (DISPLAY_SCALE * TILE_SIZE) as f32,
-        (state.player_x - sinf(state.player_angle - HALF_FOV)) * (DISPLAY_SCALE * TILE_SIZE) as f32,
-        (state.player_y + cosf(state.player_angle - HALF_FOV)) * (DISPLAY_SCALE * TILE_SIZE) as f32,
+        (state.player_x + cosf(state.player_angle - HALF_FOV)) * (DISPLAY_SCALE * TILE_SIZE) as f32,
+        (state.player_y - sinf(state.player_angle - HALF_FOV)) * (DISPLAY_SCALE * TILE_SIZE) as f32,
         3.0,
         GREEN,
     );
     draw_line(
         state.player_x * (DISPLAY_SCALE * TILE_SIZE) as f32,
         state.player_y * (DISPLAY_SCALE * TILE_SIZE) as f32,
-        (state.player_x - sinf(state.player_angle + HALF_FOV)) * (DISPLAY_SCALE * TILE_SIZE) as f32,
-        (state.player_y + cosf(state.player_angle + HALF_FOV)) * (DISPLAY_SCALE * TILE_SIZE) as f32,
+        (state.player_x + cosf(state.player_angle + HALF_FOV)) * (DISPLAY_SCALE * TILE_SIZE) as f32,
+        (state.player_y - sinf(state.player_angle + HALF_FOV)) * (DISPLAY_SCALE * TILE_SIZE) as f32,
         3.0,
         GREEN,
     );
@@ -115,7 +115,7 @@ fn draw_map(state: &State) {
         4.0,
         YELLOW,
     );
-    println!("{:?}", (target_x, target_y));
+    // println!("{:?}", (target_x, target_y));
 
     // draw player
     draw_circle(

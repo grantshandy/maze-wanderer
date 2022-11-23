@@ -13,7 +13,7 @@ pub const MAP_SIZE: i32 = 8;
 const MAP_BUFFER: usize = MAP_SIZE as usize * MAP_SIZE as usize;
 
 const MOVE_STEP: f32 = 0.05;
-const LOOK_STEP: f32 = 0.1;
+const LOOK_STEP: f32 = 0.05;
 
 #[rustfmt::skip]
 const DEFAULT_MAP: [bool; MAP_BUFFER] = [
@@ -51,32 +51,32 @@ impl State {
     // update the player's movement
     pub fn update_character(&mut self, left: bool, right: bool, forwards: bool, backwards: bool) {
         if left {
-            self.player_angle -= LOOK_STEP;
+            self.player_angle += LOOK_STEP;
         }
 
         if right {
-            self.player_angle += LOOK_STEP;
+            self.player_angle -= LOOK_STEP;
         }
 
         if forwards {
             self.player_forward = true;
-            self.player_x += -sinf(self.player_angle) * MOVE_STEP;
-            self.player_y += cosf(self.player_angle) * MOVE_STEP;
+            self.player_x += cosf(self.player_angle) * MOVE_STEP;
+            self.player_y += -sinf(self.player_angle) * MOVE_STEP;
         }
 
         if backwards {
             self.player_forward = false;
-            self.player_x -= -sinf(self.player_angle) * MOVE_STEP;
-            self.player_y -= cosf(self.player_angle) * MOVE_STEP;
+            self.player_x -= cosf(self.player_angle) * MOVE_STEP;
+            self.player_y -= -sinf(self.player_angle) * MOVE_STEP;
         }
 
         if self.map[(self.player_y as i32 * MAP_SIZE + self.player_x as i32) as usize] {
             if self.player_forward {
-                self.player_x -= -sinf(self.player_angle) * MOVE_STEP;
-                self.player_y -= cosf(self.player_angle) * MOVE_STEP;
+                self.player_x -= cosf(self.player_angle) * MOVE_STEP;
+                self.player_y -= -sinf(self.player_angle) * MOVE_STEP;
             } else {
-                self.player_x += -sinf(self.player_angle) * MOVE_STEP;
-                self.player_y += cosf(self.player_angle) * MOVE_STEP;
+                self.player_x += cosf(self.player_angle) * MOVE_STEP;
+                self.player_y += -sinf(self.player_angle) * MOVE_STEP;
             }
         }
 
@@ -91,8 +91,8 @@ impl State {
         let start_angle = self.player_angle;
 
         for depth in 0..MAP_SIZE {
-            let target_x = self.player_x - sinf(start_angle) * depth as f32;
-            let target_y = self.player_y + cosf(start_angle) * depth as f32;
+            let target_x = self.player_x + cosf(start_angle) * depth as f32;
+            let target_y = self.player_y - sinf(start_angle) * depth as f32;
 
             let col: i32 = target_x as i32;
             let row: i32 = target_y as i32;

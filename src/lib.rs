@@ -2,7 +2,7 @@
 
 use core::f32::consts::{PI, TAU};
 
-use libm::{cosf, sinf};
+use libm::{cosf, sinf, floorf, ceilf};
 
 pub const SCREEN_SIZE: i32 = 160;
 
@@ -91,8 +91,8 @@ impl State {
         let start_angle = self.player_angle;
 
         for depth in 0..MAP_SIZE {
-            let target_x = self.player_x + cosf(start_angle) * depth as f32;
-            let target_y = self.player_y - sinf(start_angle) * depth as f32;
+            let mut target_x = self.player_x + cosf(start_angle) * depth as f32;
+            let mut target_y = self.player_y - sinf(start_angle) * depth as f32;
 
             let col: i32 = target_x as i32;
             let row: i32 = target_y as i32;
@@ -100,6 +100,14 @@ impl State {
             let square: i32 = (row * MAP_SIZE) + col;
 
             if self.map[square as usize] {
+                // if self.player_y as i32 == row {
+                //     if self.player_x as i32 <= col {
+                //         target_x = floorf(target_x);
+                //     } else {
+                //         target_x = ceilf(target_x);
+                //     }
+                // }
+                
                 return (target_x, target_y);
             }
         }

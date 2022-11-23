@@ -93,7 +93,7 @@ fn draw_map(state: &State) {
         state.player_y * (DISPLAY_SCALE * TILE_SIZE) as f32,
         (state.player_x + cosf(state.player_angle - HALF_FOV)) * (DISPLAY_SCALE * TILE_SIZE) as f32,
         (state.player_y - sinf(state.player_angle - HALF_FOV)) * (DISPLAY_SCALE * TILE_SIZE) as f32,
-        3.0,
+        1.5,
         GREEN,
     );
     draw_line(
@@ -101,21 +101,22 @@ fn draw_map(state: &State) {
         state.player_y * (DISPLAY_SCALE * TILE_SIZE) as f32,
         (state.player_x + cosf(state.player_angle + HALF_FOV)) * (DISPLAY_SCALE * TILE_SIZE) as f32,
         (state.player_y - sinf(state.player_angle + HALF_FOV)) * (DISPLAY_SCALE * TILE_SIZE) as f32,
-        3.0,
+        1.5,
         GREEN,
     );
 
-    // draw map ray from center of player's vision
-    let (target_x, target_y) = &state.raycast();
-    draw_line(
-        state.player_x * (DISPLAY_SCALE * TILE_SIZE) as f32,
-        state.player_y * (DISPLAY_SCALE * TILE_SIZE) as f32,
-        target_x * (DISPLAY_SCALE * TILE_SIZE) as f32,
-        target_y * (DISPLAY_SCALE * TILE_SIZE) as f32,
-        4.0,
-        YELLOW,
-    );
-    // println!("{:?}", (target_x, target_y));
+    for ray in &state.get_rays() {
+        draw_line(
+            state.player_x * (DISPLAY_SCALE * TILE_SIZE) as f32,
+            state.player_y * (DISPLAY_SCALE * TILE_SIZE) as f32,
+            ray.x * (DISPLAY_SCALE * TILE_SIZE) as f32,
+            ray.y * (DISPLAY_SCALE * TILE_SIZE) as f32,
+            2.0,
+            YELLOW,
+        );
+
+        // println!("{:?}", (ray.x, ray.y));
+    }
 
     // draw player
     draw_circle(

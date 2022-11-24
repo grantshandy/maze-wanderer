@@ -28,7 +28,7 @@ const MAP_SIZE: i32 = 15;
 const MAP_BUFFER: usize = MAP_SIZE as usize * MAP_SIZE as usize;
 
 #[rustfmt::skip]
-const DEFAULT_MAP: [bool; MAP_BUFFER] = [
+const MAP: [bool; MAP_BUFFER] = [
     true, true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,
     true, false, false, false, false, false, false, false, false, false, false, false, false, false, true,
     true, false, true,  false, true,  false, true,  true,  true,  false, true,  false, true,  false, true,
@@ -52,7 +52,10 @@ static mut STATE: State = State {
     player_x: 1.5,
     player_y: 1.5,
     player_angle: 0.0,
-    map: DEFAULT_MAP,
+    map: MAP,
+    select_x: 4,
+    select_y: 4,
+    previous_gamepad: 0,
 };
 
 // runs on startup
@@ -70,54 +73,59 @@ unsafe fn update() {
         View::MapEditor => draw_map_editor(),
     }
 
-    if x_pressed() {
-        set_view(View::FirstPerson);
+    // toggle game view
+    let just_pressed = *GAMEPAD1 & (*GAMEPAD1 ^ STATE.previous_gamepad);
+
+    if just_pressed & BUTTON_2 != 0 {
+        match &STATE.view {
+            View::FirstPerson => set_view(View::MapEditor),
+            View::MapEditor => set_view(View::FirstPerson),
+            _ => (),
+        }
     }
 
-    if z_pressed() {
-        set_view(View::MapEditor);
-    }
+    STATE.previous_gamepad = *GAMEPAD1;
 }
 
-fn draw_start_menu() {
+unsafe fn draw_start_menu() {
     set_draw_colors(0x32);
     rect(0, 0, SCREEN_SIZE, SCREEN_SIZE);
 
-    set_draw_colors(0x24);
-    text("Maze Wanderer", 30, 20);
+    // draw map preview
+    for y in 0..MAP_SIZE {
+        for x in 0..MAP_SIZE {
+            if MAP[((y * MAP_SIZE) + x) as usize] {
+                set_draw_colors(0x11);
+            } else {
+                set_draw_colors(0x44);
+            }
 
-    set_draw_colors(0x31);
-    rect(14, 47, 134, 14);
-    set_draw_colors(0x14);
-    text("press x to start", 18, 50);
-
-    set_draw_colors(0x31);
-    rect(14, 67, 134, 27);
-    set_draw_colors(0x14);
-    text("press z for the", 22, 70);
-    text("map editor", 41, 83);
-
-    let mouse_x = mouse_x();
-    let mouse_y = mouse_y();
-
-    if left_clicked() {
-        if mouse_x >= 14 && mouse_x <= 148 && mouse_y >= 47 && mouse_y <= 61 {
-            set_view(View::FirstPerson);
-        }
-
-        if mouse_x >= 14 && mouse_x <= 148 && mouse_y >= 67 && mouse_y <= 97 {
-            set_view(View::MapEditor);
+            rect((x * 3) + 57, (y * 3) + 105, 3, 3);
         }
     }
+
+    set_draw_colors(0x24);
+    text("Maze Wanderer", 31, 20);
+
+    set_draw_colors(0x04);
+    text("press x to start", 18, 50);
+
+    if *GAMEPAD1 & BUTTON_1 != 0 {
+        set_view(View::FirstPerson);
+    }
+
+    set_draw_colors(0x04);
+    text("press z to toggle", 13, 74);
+    text("view", 64, 87);
 }
 
 fn draw_first_person() {
     unsafe {
         STATE.update_character(
-            left_pressed(),
-            right_pressed(),
-            up_pressed(),
-            down_pressed(),
+            *GAMEPAD1 & BUTTON_LEFT != 0,
+            *GAMEPAD1 & BUTTON_RIGHT != 0,
+            *GAMEPAD1 & BUTTON_UP != 0,
+            *GAMEPAD1 & BUTTON_DOWN != 0,
         );
     }
 
@@ -147,16 +155,14 @@ fn draw_first_person() {
     }
 }
 
-fn draw_map_editor() {
+unsafe fn draw_map_editor() {
     set_draw_colors(0x22);
     rect(0, 0, SCREEN_SIZE, SCREEN_SIZE);
-
-    let map_data = unsafe { STATE.map };
 
     // draw cells
     for y in 0..MAP_SIZE {
         for x in 0..MAP_SIZE {
-            if map_data[((y * MAP_SIZE) + x) as usize] {
+            if STATE.map[((y * MAP_SIZE) + x) as usize] {
                 set_draw_colors(0x11);
             } else {
                 set_draw_colors(0x44);
@@ -171,37 +177,57 @@ fn draw_map_editor() {
         }
     }
 
+    // player coords on the integer grid
+    let player_x = STATE.player_x as i32;
+    let player_y = STATE.player_y as i32;
+
     // draw player
-    unsafe {
-        set_draw_colors(0x33);
-        oval(
-            (STATE.player_x as i32 * EDITOR_TILE_SIZE) + ((EDITOR_TILE_SIZE / 4) * 3),
-            (STATE.player_y as i32 * EDITOR_TILE_SIZE) + ((EDITOR_TILE_SIZE / 4) * 3),
-            5,
-            5,
-        );
+    set_draw_colors(0x33);
+    oval(
+        (player_x * EDITOR_TILE_SIZE) + ((EDITOR_TILE_SIZE / 4) * 3),
+        (player_y * EDITOR_TILE_SIZE) + ((EDITOR_TILE_SIZE / 4) * 3),
+        5,
+        5,
+    );
+
+    // draw select border
+    let select_x = STATE.select_x as i32;
+    let select_y = STATE.select_y as i32;
+
+    let just_pressed = *GAMEPAD1 & (*GAMEPAD1 ^ STATE.previous_gamepad);
+
+    if just_pressed & BUTTON_UP != 0 && STATE.select_y - 1 != 0 {
+        STATE.select_y -= 1;
     }
 
+    if just_pressed & BUTTON_DOWN != 0 && STATE.select_y + 1 != MAP_SIZE as u8 {
+        STATE.select_y += 1;
+    }
+
+    if just_pressed & BUTTON_RIGHT != 0 && STATE.select_x + 1 != MAP_SIZE as u8 {
+        STATE.select_x += 1;
+    }
+
+    if just_pressed & BUTTON_LEFT != 0 && STATE.select_x - 1 != 0 {
+        STATE.select_x -= 1;
+    }
+
+    set_draw_colors(0x30);
+    rect(
+        select_x * EDITOR_TILE_SIZE + (EDITOR_TILE_SIZE / 2),
+        select_y * EDITOR_TILE_SIZE + (EDITOR_TILE_SIZE / 2),
+        EDITOR_TILE_SIZE as u32,
+        EDITOR_TILE_SIZE as u32,
+    );
+
     // edit map
-    let col = (mouse_x() as i32 - (EDITOR_TILE_SIZE / 2)) / EDITOR_TILE_SIZE;
-    let row = (mouse_y() as i32 - (EDITOR_TILE_SIZE / 2)) / EDITOR_TILE_SIZE;
+    if (select_x, select_y) != (player_x, player_y) && just_pressed & BUTTON_1 != 0 {
+        let square = ((select_y * MAP_SIZE) + select_x) as usize;
 
-    unsafe {
-        if (row, col) != (STATE.player_y as i32, STATE.player_x as i32)
-            && col != 0
-            && col != MAP_SIZE - 1
-            && row != 0
-            && row != MAP_SIZE - 1
-        {
-            let square = ((row * MAP_SIZE) + col) as usize;
-
-            if left_clicked() {
-                STATE.map[square] = true;
-            }
-
-            if right_clicked() {
-                STATE.map[square] = false;
-            }
+        if STATE.map[square] {
+            STATE.map[square] = false;
+        } else {
+            STATE.map[square] = true;
         }
     }
 }

@@ -15,7 +15,10 @@ pub struct State {
     pub player_x: f32,
     pub player_y: f32,
     pub player_angle: f32,
+    pub select_x: u8,
+    pub select_y: u8,
     pub map: [bool; MAP_BUFFER],
+    pub previous_gamepad: u8,
 }
 
 impl State {

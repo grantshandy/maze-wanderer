@@ -6,8 +6,8 @@ target/
 
 /target
 /Cargo.lock
-*.wasm
-*.html
+walking_simulator.*
+/bundle
 
 # Added by cargo
 #

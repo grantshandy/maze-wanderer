@@ -9,18 +9,26 @@ use core::{
 use heapless::Vec;
 use libm::{ceilf, cosf, fabsf, floorf, powf, sinf, sqrtf, tanf};
 
+mod wasm4;
+
+use wasm4::*;
+
 // player perspective
 const FOV: f32 = PI / 2.9;
 const HALF_FOV: f32 = FOV / 2.0;
 const NUMBER_OF_RAYS: usize = SCREEN_SIZE as usize;
+
+// wall constants (don't ask)
+const WALL_CONSTANT: f32 = 15.0;
+const WALL_FACTOR: f32 = 10.0;
 
 // map data
 const MAP_SIZE: i32 = 15;
 const MAP_BUFFER: usize = MAP_SIZE as usize * MAP_SIZE as usize;
 
 // player movement
-const MOVE_STEP: f32 = 0.05;
-const LOOK_STEP: f32 = 0.05;
+const MOVE_STEP: f32 = 0.04;
+const LOOK_STEP: f32 = 0.04;
 
 #[rustfmt::skip]
 const DEFAULT_MAP: [bool; MAP_BUFFER] = [
@@ -41,23 +49,9 @@ const DEFAULT_MAP: [bool; MAP_BUFFER] = [
     true, true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,
 ];
 
-// ---- wasm4 game engine pointers and constants ----
-const SCREEN_SIZE: u32 = 160;
-
-static mut PALETTE: *mut [u32; 4] = 0x04 as *mut [u32; 4];
-const DRAW_COLORS: *mut u16 = 0x14 as *mut u16;
-const GAMEPAD1: *const u8 = 0x16 as *const u8;
-
-const BUTTON_LEFT: u8 = 16;
-const BUTTON_RIGHT: u8 = 32;
-const BUTTON_UP: u8 = 64;
-const BUTTON_DOWN: u8 = 128;
-
-const BUTTON_1: u8 = 1;
-
 // runtime state is stored in a single location to minimize unsafe usage.
 static mut STATE: State = State {
-    menu: true,
+    view: View::StartMenu,
     player_x: 1.5,
     player_y: 1.5,
     player_angle: 0.0,
@@ -73,55 +67,73 @@ unsafe fn start() {
 // runs every frame
 #[no_mangle]
 unsafe fn update() {
-    if STATE.menu {
-        *DRAW_COLORS = 0x32;
-        rect(0, 0, SCREEN_SIZE, SCREEN_SIZE);
-
-        *DRAW_COLORS = 0x24;
-        text("Walking Simulator!", 10, 20);
-
-        *DRAW_COLORS = 0x34;
-        text("Press X To Start", 16, 90);
-
-        if *GAMEPAD1 & BUTTON_1 != 0 {
-            STATE.menu = false;
-        }
-    } else {
-        // move the character from the gamepad
-        STATE.update_character(
-            *GAMEPAD1 & BUTTON_RIGHT != 0,
-            *GAMEPAD1 & BUTTON_LEFT != 0,
-            *GAMEPAD1 & BUTTON_UP != 0,
-            *GAMEPAD1 & BUTTON_DOWN != 0,
-        );
-
-        // draw the ground and sky
-        *DRAW_COLORS = 0x33;
-        rect(0, 0, SCREEN_SIZE, SCREEN_SIZE / 2);
-        *DRAW_COLORS = 0x44;
-        rect(0, (SCREEN_SIZE / 2) as i32, SCREEN_SIZE, SCREEN_SIZE / 2);
-
-        // draw the walls
-        for (idx, ray) in (0_u8..).zip(STATE.get_rays().into_iter()) {
-            let wall_height = (10.0 / ray.perp_distance) * 15.0;
-
-            if ray.vertical {
-                *DRAW_COLORS = 0x22;
-            } else {
-                *DRAW_COLORS = 0x11;
-            }
-
-            vline(
-                idx as i32,
-                (SCREEN_SIZE / 2) as i32 - (wall_height / 2.0) as i32,
-                wall_height as u32,
-            );
-        }
+    match &STATE.view {
+        View::StartMenu => draw_start_menu(),
+        View::FirstPerson => draw_first_person(),
+        View::MapEditor => (),
     }
 }
 
+fn draw_start_menu() {
+    set_draw_colors(0x32);
+    rect(0, 0, SCREEN_SIZE, SCREEN_SIZE);
+
+    set_draw_colors(0x24);
+    text("Walking Simulator!", 10, 20);
+
+    set_draw_colors(0x34);
+    text("Press X To Start", 16, 90);
+
+    if x_pressed() {
+        set_view(View::FirstPerson);
+    }
+}
+
+fn draw_first_person() {
+    // move the character from the gamepad
+    unsafe {
+        STATE.update_character(
+            right_pressed(),
+            left_pressed(),
+            up_pressed(),
+            down_pressed(),
+        );
+    }
+
+    // draw the ground and sky
+    set_draw_colors(0x33);
+    rect(0, 0, SCREEN_SIZE, SCREEN_SIZE / 2);
+    set_draw_colors(0x44);
+    rect(0, (SCREEN_SIZE / 2) as i32, SCREEN_SIZE, SCREEN_SIZE / 2);
+
+    // draw the walls
+    let rays = unsafe { STATE.get_rays() };
+    
+    for (idx, ray) in (0_u8..).zip(rays.into_iter()) {
+        let wall_height = (WALL_CONSTANT / ray.perp_distance) * WALL_FACTOR;
+
+        if ray.vertical {
+            set_draw_colors(0x22);
+        } else {
+            set_draw_colors(0x11);
+        }
+
+        vline(
+            idx as i32,
+            (SCREEN_SIZE / 2) as i32 - (wall_height / 2.0) as i32,
+            wall_height as u32,
+        );
+    }
+}
+
+pub enum View {
+    StartMenu,
+    FirstPerson,
+    MapEditor,
+}
+
 struct State {
-    pub menu: bool,
+    pub view: View,
     pub player_x: f32,
     pub player_y: f32,
     pub player_angle: f32,
@@ -318,41 +330,6 @@ struct Ray {
     pub distance: f32,
     pub perp_distance: f32,
     pub vertical: bool,
-}
-
-// draw a vertical line (used for lines)
-fn vline(x: i32, y: i32, len: u32) {
-    unsafe {
-        extern_vline(x, y, len);
-    }
-}
-
-// write to the console (for errors)
-fn trace<T: AsRef<str>>(text: T) {
-    let text_ref = text.as_ref();
-    unsafe { extern_trace(text_ref.as_ptr(), text_ref.len()) }
-}
-
-// create a rectangle (for background)
-fn rect(x: i32, y: i32, width: u32, height: u32) {
-    unsafe { extern_rect(x, y, width, height) }
-}
-
-// draw text on the screen
-fn text(text: &str, x: i32, y: i32) {
-    unsafe { extern_text(text.as_ptr(), text.len(), x, y) }
-}
-
-// extern functions linking to the wasm runtime
-extern "C" {
-    #[link_name = "vline"]
-    fn extern_vline(x: i32, y: i32, len: u32);
-    #[link_name = "traceUtf8"]
-    fn extern_trace(trace: *const u8, length: usize);
-    #[link_name = "rect"]
-    fn extern_rect(x: i32, y: i32, width: u32, height: u32);
-    #[link_name = "textUtf8"]
-    fn extern_text(text: *const u8, length: usize, x: i32, y: i32);
 }
 
 // this should be stripped in the wasm-snip process

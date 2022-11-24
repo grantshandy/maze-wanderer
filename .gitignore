@@ -6,7 +6,7 @@ target/
 
 /target
 /Cargo.lock
-walking_simulator.*
+maze_wanderer.*
 /bundle
 
 # Added by cargo

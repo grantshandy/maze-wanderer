@@ -1,4 +1,7 @@
-use core::{arch::wasm32, f32::consts::{TAU, PI}};
+use core::{
+    arch::wasm32,
+    f32::consts::{PI, TAU},
+};
 
 use heapless::Vec;
 use libm::{ceilf, cosf, fabsf, floorf, powf, sinf, sqrtf, tanf};
@@ -64,7 +67,7 @@ impl State {
             let angle = initial_angle + num as f32 * angle_step;
 
             if let Err(_err) = rays.push(self.raycast(angle)) {
-                trace("too many rays for raycast buffer");
+                trace("too many rays in raycast buffer");
                 wasm32::unreachable();
             };
         }
@@ -127,13 +130,10 @@ impl State {
             self.player_y,
             self.player_x + next_x,
             self.player_y + next_y,
-        );
-
-        let perp_distance = distance * cosf(angle - self.player_angle);
+        ) * cosf(angle - self.player_angle);
 
         Ray {
             distance,
-            perp_distance,
             vertical: false,
         }
     }
@@ -181,13 +181,10 @@ impl State {
             self.player_y,
             self.player_x + next_x,
             self.player_y + next_y,
-        );
-
-        let perp_distance = distance * cosf(angle - self.player_angle);
+        ) * cosf(angle - self.player_angle);
 
         Ray {
             distance,
-            perp_distance,
             vertical: true,
         }
     }
@@ -203,6 +200,5 @@ fn in_bounds(square: i32) -> bool {
 
 pub struct Ray {
     pub distance: f32,
-    pub perp_distance: f32,
     pub vertical: bool,
 }

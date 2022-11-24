@@ -31,39 +31,27 @@ pub fn set_view(view: View) {
     }
 }
 
-// draw a vertical line
 pub fn vline(x: i32, y: i32, len: u32) {
     unsafe {
         extern_vline(x, y, len);
     }
 }
 
-// draw a horizontal line
-// pub fn hline(x: i32, y: i32, len: u32) {
-//     unsafe {
-//         extern_hline(x, y, len);
-//     }
-// }
-
-// draw an oval
 pub fn oval(x: i32, y: i32, width: u32, height: u32) {
     unsafe {
         extern_oval(x, y, width, height);
     }
 }
 
-// write to the console (for errors)
 pub fn trace<T: AsRef<str>>(text: T) {
     let text_ref = text.as_ref();
     unsafe { extern_trace(text_ref.as_ptr(), text_ref.len()) }
 }
 
-// create a rectangle (for background)
 pub fn rect(x: i32, y: i32, width: u32, height: u32) {
     unsafe { extern_rect(x, y, width, height) }
 }
 
-// draw text on the screen
 pub fn text(text: &str, x: i32, y: i32) {
     unsafe { extern_text(text.as_ptr(), text.len(), x, y) }
 }
@@ -112,8 +100,6 @@ pub fn mouse_y() -> i16 {
 extern "C" {
     #[link_name = "vline"]
     fn extern_vline(x: i32, y: i32, len: u32);
-    // #[link_name = "hline"]
-    // fn extern_hline(x: i32, y: i32, len: u32);
     #[link_name = "oval"]
     fn extern_oval(x: i32, y: i32, width: u32, height: u32);
     #[link_name = "traceUtf8"]

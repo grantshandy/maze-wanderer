@@ -1,14 +1,14 @@
 all:
 	cargo build --release
-	cp target/wasm32-unknown-unknown/release/walking_simulator.wasm .
-	wasm-snip --snip-rust-fmt-code --snip-rust-panicking-code walking_simulator.wasm -o walking_simulator.wasm
+	cp target/wasm32-unknown-unknown/release/maze_wanderer.wasm .
+	wasm-snip --snip-rust-fmt-code --snip-rust-panicking-code maze_wanderer.wasm -o maze_wanderer.wasm
 	
 	# enable wasm-opt for a tiny reduction but it won't run in the native runtime
-	# wasm-opt -Oz --strip-producers --dce walking_simulator.wasm -o walking_simulator.wasm
+	# wasm-opt -Oz --strip-producers --dce maze_wanderer.wasm -o maze_wanderer.wasm
 
 run: all
-	# w4 run-native walking_simulator.wasm
-	w4 run --no-qr --no-open walking_simulator.wasm
+	# w4 run-native maze_wanderer.wasm
+	w4 run --no-qr --no-open maze_wanderer.wasm
 
 dev:
 	cargo watch -s "make run"
@@ -16,10 +16,10 @@ dev:
 bundle: all
 	mkdir -p bundle/
 
-	w4 bundle walking_simulator.wasm \
-		--title "Walking Simulator" \
+	w4 bundle maze_wanderer.wasm \
+		--title "Maze Wanderer" \
 		--description "Have Fun!" \
-		--html bundle/walking_simulator.html \
-		--mac bundle/walking_simulator.bin \
-		--linux bundle/walking_simulator.linux \
-		--windows bundle/walking_simulator.exe
+		--html bundle/maze_wanderer.html \
+		--mac bundle/maze_wanderer.bin \
+		--linux bundle/maze_wanderer.linux \
+		--windows bundle/maze_wanderer.exe

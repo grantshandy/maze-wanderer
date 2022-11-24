@@ -84,7 +84,7 @@ fn draw_start_menu() {
     rect(0, 0, SCREEN_SIZE, SCREEN_SIZE);
 
     set_draw_colors(0x24);
-    text("Walking Simulator!", 10, 20);
+    text("Maze Wanderer", 30, 20);
 
     set_draw_colors(0x31);
     rect(14, 47, 134, 14);
@@ -103,7 +103,9 @@ fn draw_start_menu() {
     if left_clicked() {
         if mouse_x >= 14 && mouse_x <= 148 && mouse_y >= 47 && mouse_y <= 61 {
             set_view(View::FirstPerson);
-        } else if mouse_x >= 14 && mouse_x <= 148 && mouse_y >= 67 && mouse_y <= 97 {
+        }
+
+        if mouse_x >= 14 && mouse_x <= 148 && mouse_y >= 67 && mouse_y <= 97 {
             set_view(View::MapEditor);
         }
     }
@@ -129,7 +131,7 @@ fn draw_first_person() {
     let rays = unsafe { STATE.get_rays() };
 
     for (idx, ray) in (0_u8..).zip(rays.into_iter()) {
-        let wall_height = (WALL_CONSTANT / ray.perp_distance) * WALL_FACTOR;
+        let wall_height = (WALL_CONSTANT / ray.distance) * WALL_FACTOR;
 
         if ray.vertical {
             set_draw_colors(0x22);
@@ -213,5 +215,6 @@ pub enum View {
 // this should be stripped in the wasm-snip process
 #[panic_handler]
 fn phandler(_: &PanicInfo<'_>) -> ! {
+    trace("panic!");
     wasm32::unreachable()
 }

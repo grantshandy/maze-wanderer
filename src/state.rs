@@ -23,7 +23,7 @@ pub struct State {
 
 impl State {
     // update the player's movement
-    pub fn update_character(&mut self, left: bool, right: bool, forwards: bool, backwards: bool) {
+    pub fn update_character(&mut self, left: bool, right: bool, forwards: bool, backwards: bool, sprint: bool) {
         if left {
             self.player_angle += LOOK_STEP;
         }
@@ -34,15 +34,21 @@ impl State {
 
         // store this incase we might want to restore position if we hit a wall
         let previous_position = (self.player_x, self.player_y);
+        
+        let sprint_factor: f32 = if sprint {
+            1.5
+        } else {
+            1.0
+        };
 
         if forwards {
-            self.player_x += cosf(self.player_angle) * MOVE_STEP;
-            self.player_y += -sinf(self.player_angle) * MOVE_STEP;
+            self.player_x += cosf(self.player_angle) * MOVE_STEP * sprint_factor;
+            self.player_y += -sinf(self.player_angle) * MOVE_STEP * sprint_factor;
         }
 
         if backwards {
-            self.player_x -= cosf(self.player_angle) * MOVE_STEP;
-            self.player_y -= -sinf(self.player_angle) * MOVE_STEP;
+            self.player_x -= cosf(self.player_angle) * MOVE_STEP * sprint_factor;
+            self.player_y -= -sinf(self.player_angle) * MOVE_STEP * sprint_factor;
         }
 
         // move back to our original position if we moved into a wall

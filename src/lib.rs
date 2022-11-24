@@ -126,6 +126,7 @@ fn draw_first_person() {
             *GAMEPAD1 & BUTTON_RIGHT != 0,
             *GAMEPAD1 & BUTTON_UP != 0,
             *GAMEPAD1 & BUTTON_DOWN != 0,
+            *GAMEPAD1 & BUTTON_1 != 0,
         );
     }
 

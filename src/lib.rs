@@ -10,12 +10,12 @@ use heapless::Vec;
 use libm::{ceilf, cosf, fabsf, floorf, powf, sinf, sqrtf, tanf};
 
 // player perspective
-pub const FOV: f32 = PI / 3.5;
-pub const HALF_FOV: f32 = FOV / 2.0;
+const FOV: f32 = PI / 2.9;
+const HALF_FOV: f32 = FOV / 2.0;
 const NUMBER_OF_RAYS: usize = SCREEN_SIZE as usize;
 
 // map data
-pub const MAP_SIZE: i32 = 10;
+const MAP_SIZE: i32 = 15;
 const MAP_BUFFER: usize = MAP_SIZE as usize * MAP_SIZE as usize;
 
 // player movement
@@ -23,36 +23,44 @@ const MOVE_STEP: f32 = 0.05;
 const LOOK_STEP: f32 = 0.05;
 
 #[rustfmt::skip]
-pub const DEFAULT_MAP: [bool; MAP_BUFFER] = [
-    true, true, true, true, true, true, true, true, true, true,
-    true, false, false, false, true, true, false, false, false, true,
-    true, false, true, false, false, false, false, false, false, true,
-    true, false, false, false, false, true, true, false, false, true,
-    true, true, false, false, false, false, false, false, false, true,
-    true, false, false, false, true, false, false, false, false, true,
-    true, false, false, false, true, false, false, false, false, true,
-    true, false, false, false, true, false, false, false, false, true,
-    true, false, false, false, false, false, false, false, false, true,
-    true, true, true, true, true, true, true, true, true, true
+const DEFAULT_MAP: [bool; MAP_BUFFER] = [
+    true, true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,
+    true, false, false, false, false, false, false, false, false, false, false, false, false, false, true,
+    true, false, true,  false, true,  false, true,  true,  true,  false, true,  false, true,  false, true,
+    true, false, false, false, true,  false, false, false, false, false, true,  false, false, false, true,
+    true, false, true,  true,  true,  false, true,  false, true,  false, true,  true,  true,  false, true,
+    true, false, false, false, false, false, false, false, false, false, false, false, false, false, true,
+    true, false, true,  false, true,  false, true,  true,  true,  false, true,  false, true,  false, true,
+    true, false, true,  false, false, false, true,  false, true,  false, false, false, true,  false, true,
+    true, false, true,  false, true,  false, true,  true,  true,  false, true,  false, true,  false, true,
+    true, false, false, false, false, false, false, false, false, false, false, false, false, false, true,
+    true, false, true,  true,  true,  false, true,  false, true,  false, true,  true,  true,  false, true,
+    true, false, false, false, true,  false, false, false, false, false, true,  false, false, false, true,
+    true, false, true,  false, true,  false, true,  true,  true,  false, true,  false, true,  false, true,
+    true, false, false, false, false, false, false, false, false, false, false, false, false, false, true,
+    true, true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,
 ];
 
 // ---- wasm4 game engine pointers and constants ----
-pub const SCREEN_SIZE: u32 = 160;
+const SCREEN_SIZE: u32 = 160;
 
-pub static mut PALETTE: *mut [u32; 4] = 0x04 as *mut [u32; 4];
-pub const DRAW_COLORS: *mut u16 = 0x14 as *mut u16;
-pub const GAMEPAD1: *const u8 = 0x16 as *const u8;
+static mut PALETTE: *mut [u32; 4] = 0x04 as *mut [u32; 4];
+const DRAW_COLORS: *mut u16 = 0x14 as *mut u16;
+const GAMEPAD1: *const u8 = 0x16 as *const u8;
 
-pub const BUTTON_LEFT: u8 = 16;
-pub const BUTTON_RIGHT: u8 = 32;
-pub const BUTTON_UP: u8 = 64;
-pub const BUTTON_DOWN: u8 = 128;
+const BUTTON_LEFT: u8 = 16;
+const BUTTON_RIGHT: u8 = 32;
+const BUTTON_UP: u8 = 64;
+const BUTTON_DOWN: u8 = 128;
+
+const BUTTON_1: u8 = 1;
 
 // runtime state is stored in a single location to minimize unsafe usage.
 static mut STATE: State = State {
-    player_x: 3.5,
-    player_y: 3.5,
-    player_angle: PI,
+    menu: true,
+    player_x: 1.5,
+    player_y: 1.5,
+    player_angle: 0.0,
     map: DEFAULT_MAP,
 };
 
@@ -65,42 +73,55 @@ unsafe fn start() {
 // runs every frame
 #[no_mangle]
 unsafe fn update() {
-    // move the character from the gamepad
-    STATE.update_character(
-        *GAMEPAD1 & BUTTON_RIGHT != 0,
-        *GAMEPAD1 & BUTTON_LEFT != 0,
-        *GAMEPAD1 & BUTTON_UP != 0,
-        *GAMEPAD1 & BUTTON_DOWN != 0,
-    );
+    if STATE.menu {
+        *DRAW_COLORS = 0x32;
+        rect(0, 0, SCREEN_SIZE, SCREEN_SIZE);
 
-    // draw the ground and sky
-    *DRAW_COLORS = 0x33;
-    rect(0, 0, SCREEN_SIZE, SCREEN_SIZE / 2);
-    *DRAW_COLORS = 0x44;
-    rect(0, (SCREEN_SIZE / 2) as i32, SCREEN_SIZE, SCREEN_SIZE / 2);
+        *DRAW_COLORS = 0x24;
+        text("Walking Simulator!", 10, 20);
 
-    // draw the walls
-    let mut idx: u8 = 0;
-    for ray in STATE.get_rays() {
-        let wall_height = (10.0 / ray.perp_distance) * 20.0;
+        *DRAW_COLORS = 0x34;
+        text("Press X To Start", 16, 90);
 
-        if ray.vertical {
-            *DRAW_COLORS = 0x22;
-        } else {
-            *DRAW_COLORS = 0x11;
+        if *GAMEPAD1 & BUTTON_1 != 0 {
+            STATE.menu = false;
         }
-
-        vline(
-            idx as i32,
-            (SCREEN_SIZE / 2) as i32 - (wall_height / 2.0) as i32,
-            wall_height as u32,
+    } else {
+        // move the character from the gamepad
+        STATE.update_character(
+            *GAMEPAD1 & BUTTON_RIGHT != 0,
+            *GAMEPAD1 & BUTTON_LEFT != 0,
+            *GAMEPAD1 & BUTTON_UP != 0,
+            *GAMEPAD1 & BUTTON_DOWN != 0,
         );
 
-        idx += 1;
+        // draw the ground and sky
+        *DRAW_COLORS = 0x33;
+        rect(0, 0, SCREEN_SIZE, SCREEN_SIZE / 2);
+        *DRAW_COLORS = 0x44;
+        rect(0, (SCREEN_SIZE / 2) as i32, SCREEN_SIZE, SCREEN_SIZE / 2);
+
+        // draw the walls
+        for (idx, ray) in (0_u8..).zip(STATE.get_rays().into_iter()) {
+            let wall_height = (10.0 / ray.perp_distance) * 15.0;
+
+            if ray.vertical {
+                *DRAW_COLORS = 0x22;
+            } else {
+                *DRAW_COLORS = 0x11;
+            }
+
+            vline(
+                idx as i32,
+                (SCREEN_SIZE / 2) as i32 - (wall_height / 2.0) as i32,
+                wall_height as u32,
+            );
+        }
     }
 }
 
-pub struct State {
+struct State {
+    pub menu: bool,
     pub player_x: f32,
     pub player_y: f32,
     pub player_angle: f32,
@@ -224,11 +245,8 @@ impl State {
         let perp_distance = distance * cosf(angle - self.player_angle);
 
         Ray {
-            x: next_x + self.player_x,
-            y: next_y + self.player_y,
             distance,
             perp_distance,
-            angle,
             vertical: false,
         }
     }
@@ -281,11 +299,8 @@ impl State {
         let perp_distance = distance * cosf(angle - self.player_angle);
 
         Ray {
-            x: next_x + self.player_x,
-            y: next_y + self.player_y,
             distance,
             perp_distance,
-            angle,
             vertical: true,
         }
     }
@@ -299,37 +314,33 @@ fn in_bounds(square: i32) -> bool {
     square > 0 && square < MAP_BUFFER as i32
 }
 
-pub struct Ray {
-    pub x: f32,
-    pub y: f32,
-    pub angle: f32,
+struct Ray {
     pub distance: f32,
     pub perp_distance: f32,
     pub vertical: bool,
 }
 
-// this should be stripped in the wasm-snip process
-#[panic_handler]
-fn phandler(_: &PanicInfo<'_>) -> ! {
-    wasm32::unreachable()
-}
-
 // draw a vertical line (used for lines)
-pub fn vline(x: i32, y: i32, len: u32) {
+fn vline(x: i32, y: i32, len: u32) {
     unsafe {
         extern_vline(x, y, len);
     }
 }
 
 // write to the console (for errors)
-pub fn trace<T: AsRef<str>>(text: T) {
+fn trace<T: AsRef<str>>(text: T) {
     let text_ref = text.as_ref();
     unsafe { extern_trace(text_ref.as_ptr(), text_ref.len()) }
 }
 
 // create a rectangle (for background)
-pub fn rect(x: i32, y: i32, width: u32, height: u32) {
+fn rect(x: i32, y: i32, width: u32, height: u32) {
     unsafe { extern_rect(x, y, width, height) }
+}
+
+// draw text on the screen
+fn text(text: &str, x: i32, y: i32) {
+    unsafe { extern_text(text.as_ptr(), text.len(), x, y) }
 }
 
 // extern functions linking to the wasm runtime
@@ -340,4 +351,12 @@ extern "C" {
     fn extern_trace(trace: *const u8, length: usize);
     #[link_name = "rect"]
     fn extern_rect(x: i32, y: i32, width: u32, height: u32);
+    #[link_name = "textUtf8"]
+    fn extern_text(text: *const u8, length: usize, x: i32, y: i32);
+}
+
+// this should be stripped in the wasm-snip process
+#[panic_handler]
+fn phandler(_: &PanicInfo<'_>) -> ! {
+    wasm32::unreachable()
 }

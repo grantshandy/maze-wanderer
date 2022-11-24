@@ -7,7 +7,8 @@ all:
 	# wasm-opt -Oz --strip-producers --dce raycaster.wasm -o raycaster.wasm
 
 run: all
-	w4 run-native raycaster.wasm
+	# w4 run-native raycaster.wasm
+	w4 run --no-qr --no-open raycaster.wasm
 
 dev:
 	cargo watch -s "make run"

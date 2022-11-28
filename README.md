@@ -2,7 +2,7 @@
 
 A simple first person raycasting demo, written in [Rust](https://rust-lang.org).
 
-[Play Online](https://grantshandy.github.io/maze-wanderer)
+[Play Online](https://wasm4.org/play/maze-wanderer/)
 
 <img width="25%" src="https://raw.githubusercontent.com/grantshandy/maze-wanderer/main/demo.gif" />
 

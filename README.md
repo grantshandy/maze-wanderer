@@ -1,6 +1,6 @@
 # Maze Wanderer
 
-A simple first person raycasting demo, written in [Rust](https://rust-lang.org).
+A simple first person raycasting demo for the [wasm4](https://wasm4.org) engine.
 
 [Play Online](https://wasm4.org/play/maze-wanderer/)
 

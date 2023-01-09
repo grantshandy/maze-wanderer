@@ -15,3 +15,5 @@ maze_wanderer.*
 
 #/target
 #/Cargo.lock
+
+/w4

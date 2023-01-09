@@ -133,8 +133,15 @@ fn update() {
 }
 
 struct Ray {
+    angle_diff: f32,
     pub distance: f32,
     pub vertical: bool,
+}
+
+impl Ray {
+    pub fn wall_height(&self) -> f32 {
+        (WALL_CONSTANT / (self.distance * cosf(self.angle_diff))) * WALL_FACTOR
+    }
 }
 
 enum View {
@@ -156,19 +163,6 @@ struct State {
 
 impl State {
     pub fn update(&mut self) {
-        // toggle game view
-        unsafe {
-            if (*GAMEPAD1 & (*GAMEPAD1 ^ self.previous_gamepad)) & BUTTON_2 != 0 {
-                self.view = match &self.view {
-                    View::FirstPerson => View::MapEditor,
-                    View::MapEditor => View::FirstPerson,
-                    View::StartMenu => View::StartMenu,
-                }
-            }
-
-            self.previous_gamepad = *GAMEPAD1;
-        }
-
         match self.view {
             View::MapEditor => {
                 set_draw_colors(0x22);
@@ -292,7 +286,7 @@ impl State {
                 let rays = self.get_rays();
 
                 for (idx, ray) in (0_u8..).zip(rays.into_iter()) {
-                    let wall_height = (WALL_CONSTANT / ray.distance) * WALL_FACTOR;
+                    let wall_height = ray.wall_height();
 
                     if ray.vertical {
                         set_draw_colors(0x22);
@@ -308,18 +302,31 @@ impl State {
                 }
             }
         }
+
+        // toggle game view
+        unsafe {
+            if (*GAMEPAD1 & (*GAMEPAD1 ^ self.previous_gamepad)) & BUTTON_2 != 0 {
+                self.view = match &self.view {
+                    View::FirstPerson => View::MapEditor,
+                    View::MapEditor => View::FirstPerson,
+                    View::StartMenu => View::StartMenu,
+                }
+            }
+
+            self.previous_gamepad = *GAMEPAD1;
+        }
     }
 
     // update the player's movement
-    pub fn update_character(
-        &mut self,
-    ) {
+    pub fn update_character(&mut self) {
         let (left, right, forwards, backwards, sprint) = unsafe {
-            (*GAMEPAD1 & BUTTON_LEFT != 0,
-            *GAMEPAD1 & BUTTON_RIGHT != 0,
-            *GAMEPAD1 & BUTTON_UP != 0,
-            *GAMEPAD1 & BUTTON_DOWN != 0,
-            *GAMEPAD1 & BUTTON_1 != 0,)
+            (
+                *GAMEPAD1 & BUTTON_LEFT != 0,
+                *GAMEPAD1 & BUTTON_RIGHT != 0,
+                *GAMEPAD1 & BUTTON_UP != 0,
+                *GAMEPAD1 & BUTTON_DOWN != 0,
+                *GAMEPAD1 & BUTTON_1 != 0,
+            )
         };
 
         if left {
@@ -359,7 +366,7 @@ impl State {
         }
     }
 
-    // get all rays
+    // get all for the screen rays
     pub fn get_rays(&self) -> Vec<Ray, NUMBER_OF_RAYS> {
         let mut rays = Vec::new();
 
@@ -433,9 +440,10 @@ impl State {
             self.player_y,
             self.player_x + next_x,
             self.player_y + next_y,
-        ) * cosf(angle - self.player_angle);
+        );
 
         Ray {
+            angle_diff: angle - self.player_angle,
             distance,
             vertical: false,
         }
@@ -484,9 +492,10 @@ impl State {
             self.player_y,
             self.player_x + next_x,
             self.player_y + next_y,
-        ) * cosf(angle - self.player_angle);
+        );
 
         Ray {
+            angle_diff: angle - self.player_angle,
             distance,
             vertical: true,
         }

@@ -2,6 +2,7 @@ all:
 	cargo build --release
 	cp target/wasm32-unknown-unknown/release/maze_wanderer.wasm .
 	wasm-snip --snip-rust-fmt-code --snip-rust-panicking-code maze_wanderer.wasm -o maze_wanderer.wasm
+	# wasm-opt maze_wanderer.wasm -Oz -o maze_wanderer.wasm
 
 run: all
 	w4 run --no-qr --no-open maze_wanderer.wasm

@@ -101,7 +101,7 @@ const MAP: [bool; MAP_BUFFER] = [
 // runtime state is stored in a single location to minimize unsafe usage.
 static mut STATE: State = State {
     view: View::StartMenu,
-    player_x: 1.6,
+    player_x: 1.5,
     player_y: 1.5,
     player_angle: 0.0,
     map: MAP,
@@ -226,18 +226,18 @@ impl State {
                     }
                 }
 
-                // player coords on the integer grid
-                let player_x = self.player_x as i32;
-                let player_y = self.player_y as i32;
-
                 // draw player
                 set_draw_colors(0x44);
                 oval(
-                    (player_x * EDITOR_TILE_SIZE) + ((EDITOR_TILE_SIZE / 4) * 3),
-                    (player_y * EDITOR_TILE_SIZE) + ((EDITOR_TILE_SIZE / 4) * 3),
-                    5,
-                    5,
+                    (self.player_x * EDITOR_TILE_SIZE as f32) as i32 + ((EDITOR_TILE_SIZE / 4) * 3) - 3,
+                    (self.player_y * EDITOR_TILE_SIZE as f32) as i32 + ((EDITOR_TILE_SIZE / 4) * 3) - 3,
+                    6,
+                    6,
                 );
+
+                // player coords on the integer grid
+                let player_x = self.player_x as i32;
+                let player_y = self.player_y as i32;
 
                 // draw select border
                 let just_pressed = unsafe { *GAMEPAD1 & (*GAMEPAD1 ^ self.previous_gamepad) };
@@ -261,7 +261,7 @@ impl State {
                 let select_x = self.select_x as i32;
                 let select_y = self.select_y as i32;
 
-                set_draw_colors(0x40);
+                set_draw_colors(0x10);
                 rect(
                     select_x * EDITOR_TILE_SIZE + (EDITOR_TILE_SIZE / 2),
                     select_y * EDITOR_TILE_SIZE + (EDITOR_TILE_SIZE / 2),

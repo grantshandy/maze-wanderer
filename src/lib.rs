@@ -159,14 +159,17 @@ impl State {
     pub fn update(&mut self) {
         match self.view {
             View::StartMenu => {
-                set_draw_colors(0x22);
+                set_draw_colors(0x11);
                 rect(0, 0, SCREEN_SIZE, SCREEN_SIZE);
+
+                set_draw_colors(0x44);
+                rect(56, 104, 47, 47);
 
                 // draw map preview
                 for y in 0..MAP_SIZE {
                     for x in 0..MAP_SIZE {
                         if MAP[((y * MAP_SIZE) + x) as usize] {
-                            set_draw_colors(0x11);
+                            set_draw_colors(0x22);
                         } else {
                             set_draw_colors(0x33);
                         }
@@ -175,14 +178,21 @@ impl State {
                     }
                 }
 
-                set_draw_colors(0x13);
+                set_draw_colors(0x44);
+                rect(78, 126, 3, 3);
+
+                set_draw_colors(0x44);
                 rect(5, 5, 150, 83);
+
+                set_draw_colors(0x23);
+                rect(6, 6, 148, 81);
+                rect(7, 7, 146, 79);
 
                 set_draw_colors(0x31);
                 text("Maze Wanderer", 31, 13);
 
                 set_draw_colors(0x31);
-                text("press x to start", 18, 40);
+                text("press x to start", 18, 37);
 
                 unsafe {
                     if *GAMEPAD1 & BUTTON_1 != 0 {
@@ -191,8 +201,8 @@ impl State {
                 }
 
                 set_draw_colors(0x31);
-                text("press z to toggle", 13, 60);
-                text("view", 64, 73);
+                text("press z to toggle", 13, 58);
+                text("view", 64, 71);
             }
             View::MapEditor => {
                 set_draw_colors(0x11);

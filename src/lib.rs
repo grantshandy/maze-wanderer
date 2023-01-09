@@ -40,10 +40,6 @@ fn oval(x: i32, y: i32, width: u32, height: u32) {
     unsafe { extern_oval(x, y, width, height) }
 }
 
-fn trace(text: &str) {
-    unsafe { extern_trace(text.as_ptr(), text.len()) }
-}
-
 fn rect(x: i32, y: i32, width: u32, height: u32) {
     unsafe { extern_rect(x, y, width, height) }
 }
@@ -58,8 +54,6 @@ extern "C" {
     fn extern_vline(x: i32, y: i32, len: u32);
     #[link_name = "oval"]
     fn extern_oval(x: i32, y: i32, width: u32, height: u32);
-    #[link_name = "traceUtf8"]
-    fn extern_trace(trace: *const u8, length: usize);
     #[link_name = "rect"]
     fn extern_rect(x: i32, y: i32, width: u32, height: u32);
     #[link_name = "textUtf8"]
@@ -78,8 +72,8 @@ const WALL_FACTOR: f32 = 5.0;
 const EDITOR_TILE_SIZE: i32 = SCREEN_SIZE as i32 / MAP_SIZE;
 
 // player movement
-const MOVE_STEP: f32 = 0.04;
-const LOOK_STEP: f32 = 0.04;
+const MOVE_STEP: f32 = 0.035;
+const LOOK_STEP: f32 = 0.035;
 
 // map data
 const MAP_SIZE: i32 = 15;
@@ -107,7 +101,7 @@ const MAP: [bool; MAP_BUFFER] = [
 // runtime state is stored in a single location to minimize unsafe usage.
 static mut STATE: State = State {
     view: View::StartMenu,
-    player_x: 1.5,
+    player_x: 1.6,
     player_y: 1.5,
     player_angle: 0.0,
     map: MAP,
@@ -120,7 +114,7 @@ static mut STATE: State = State {
 #[no_mangle]
 fn start() {
     unsafe {
-        *PALETTE = [0x36392D, 0x4B503F, 0x4E74BC, 0xDEF2C8];
+        *PALETTE = [0x2B2D24, 0x606751, 0x949C81, 0x3E74BC];
     }
 }
 
@@ -164,17 +158,53 @@ struct State {
 impl State {
     pub fn update(&mut self) {
         match self.view {
-            View::MapEditor => {
+            View::StartMenu => {
                 set_draw_colors(0x22);
+                rect(0, 0, SCREEN_SIZE, SCREEN_SIZE);
+
+                // draw map preview
+                for y in 0..MAP_SIZE {
+                    for x in 0..MAP_SIZE {
+                        if MAP[((y * MAP_SIZE) + x) as usize] {
+                            set_draw_colors(0x11);
+                        } else {
+                            set_draw_colors(0x33);
+                        }
+
+                        rect((x * 3) + 57, (y * 3) + 105, 3, 3);
+                    }
+                }
+
+                set_draw_colors(0x13);
+                rect(5, 5, 150, 83);
+
+                set_draw_colors(0x31);
+                text("Maze Wanderer", 31, 13);
+
+                set_draw_colors(0x31);
+                text("press x to start", 18, 40);
+
+                unsafe {
+                    if *GAMEPAD1 & BUTTON_1 != 0 {
+                        self.view = View::FirstPerson;
+                    }
+                }
+
+                set_draw_colors(0x31);
+                text("press z to toggle", 13, 60);
+                text("view", 64, 73);
+            }
+            View::MapEditor => {
+                set_draw_colors(0x11);
                 rect(0, 0, SCREEN_SIZE, SCREEN_SIZE);
 
                 // draw cells
                 for y in 0..MAP_SIZE {
                     for x in 0..MAP_SIZE {
                         if self.map[((y * MAP_SIZE) + x) as usize] {
-                            set_draw_colors(0x11);
+                            set_draw_colors(0x22);
                         } else {
-                            set_draw_colors(0x44);
+                            set_draw_colors(0x33);
                         }
 
                         rect(
@@ -191,7 +221,7 @@ impl State {
                 let player_y = self.player_y as i32;
 
                 // draw player
-                set_draw_colors(0x33);
+                set_draw_colors(0x44);
                 oval(
                     (player_x * EDITOR_TILE_SIZE) + ((EDITOR_TILE_SIZE / 4) * 3),
                     (player_y * EDITOR_TILE_SIZE) + ((EDITOR_TILE_SIZE / 4) * 3),
@@ -206,22 +236,22 @@ impl State {
                     self.select_y -= 1;
                 }
 
-                if just_pressed & BUTTON_DOWN != 0 && self.select_y + 1 != MAP_SIZE as u8 {
+                if just_pressed & BUTTON_DOWN != 0 && self.select_y + 1 != (MAP_SIZE - 1) as u8 {
                     self.select_y += 1;
-                }
-
-                if just_pressed & BUTTON_RIGHT != 0 && self.select_x + 1 != MAP_SIZE as u8 {
-                    self.select_x += 1;
                 }
 
                 if just_pressed & BUTTON_LEFT != 0 && self.select_x - 1 != 0 {
                     self.select_x -= 1;
                 }
+                
+                if just_pressed & BUTTON_RIGHT != 0 && self.select_x + 1 != (MAP_SIZE - 1) as u8 {
+                    self.select_x += 1;
+                }
 
                 let select_x = self.select_x as i32;
                 let select_y = self.select_y as i32;
 
-                set_draw_colors(0x30);
+                set_draw_colors(0x40);
                 rect(
                     select_x * EDITOR_TILE_SIZE + (EDITOR_TILE_SIZE / 2),
                     select_y * EDITOR_TILE_SIZE + (EDITOR_TILE_SIZE / 2),
@@ -240,46 +270,13 @@ impl State {
                     }
                 }
             }
-            View::StartMenu => {
-                set_draw_colors(0x32);
-                rect(0, 0, SCREEN_SIZE, SCREEN_SIZE);
-
-                // draw map preview
-                for y in 0..MAP_SIZE {
-                    for x in 0..MAP_SIZE {
-                        if MAP[((y * MAP_SIZE) + x) as usize] {
-                            set_draw_colors(0x11);
-                        } else {
-                            set_draw_colors(0x44);
-                        }
-
-                        rect((x * 3) + 57, (y * 3) + 105, 3, 3);
-                    }
-                }
-
-                set_draw_colors(0x24);
-                text("Maze Wanderer", 31, 20);
-
-                set_draw_colors(0x04);
-                text("press x to start", 18, 50);
-
-                unsafe {
-                    if *GAMEPAD1 & BUTTON_1 != 0 {
-                        self.view = View::FirstPerson;
-                    }
-                }
-
-                set_draw_colors(0x04);
-                text("press z to toggle", 13, 74);
-                text("view", 64, 87);
-            }
             View::FirstPerson => {
                 self.update_character();
 
                 // draw the ground and sky
-                set_draw_colors(0x33);
-                rect(0, 0, SCREEN_SIZE, SCREEN_SIZE / 2);
                 set_draw_colors(0x44);
+                rect(0, 0, SCREEN_SIZE, SCREEN_SIZE / 2);
+                set_draw_colors(0x33);
                 rect(0, (SCREEN_SIZE / 2) as i32, SCREEN_SIZE, SCREEN_SIZE / 2);
 
                 // draw the walls
@@ -377,7 +374,6 @@ impl State {
             let angle = initial_angle + num as f32 * angle_step;
 
             if let Err(_err) = rays.push(self.raycast(angle)) {
-                trace("too many rays in raycast buffer");
                 wasm32::unreachable();
             };
         }
@@ -515,6 +511,5 @@ fn in_bounds(square: i32) -> bool {
 // this should be stripped in the wasm-snip process
 #[panic_handler]
 fn phandler(_: &PanicInfo<'_>) -> ! {
-    trace("panic!");
     wasm32::unreachable()
 }

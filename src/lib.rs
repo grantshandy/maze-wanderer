@@ -13,6 +13,8 @@ use libm::{ceilf, cosf, fabsf, floorf, powf, sinf, sqrtf, tanf};
 const SCREEN_SIZE: u32 = 160;
 
 static mut PALETTE: *mut [u32; 4] = 0x04 as *mut [u32; 4];
+static mut FRAMEBUFFER: *mut [u8; 6400] = 0xa0 as *mut [u8; 6400];
+
 const DRAW_COLORS: *mut u16 = 0x14 as *mut u16;
 const GAMEPAD1: *const u8 = 0x16 as *const u8;
 
@@ -105,6 +107,7 @@ static mut STATE: State = State {
     player_y: 1.5,
     player_angle: 0.0,
     map: MAP,
+    depth_buffer: Vec::new(),
     select_x: 4,
     select_y: 4,
     previous_gamepad: 0,
@@ -145,14 +148,15 @@ enum View {
 }
 
 struct State {
-    pub view: View,
-    pub player_x: f32,
-    pub player_y: f32,
-    pub player_angle: f32,
-    pub select_x: u8,
-    pub select_y: u8,
-    pub map: [bool; MAP_BUFFER],
-    pub previous_gamepad: u8,
+    view: View,
+    player_x: f32,
+    player_y: f32,
+    player_angle: f32,
+    select_x: u8,
+    select_y: u8,
+    map: [bool; MAP_BUFFER],
+    depth_buffer: Vec<u8, 25600>,
+    previous_gamepad: u8,
 }
 
 impl State {
@@ -229,8 +233,10 @@ impl State {
                 // draw player
                 set_draw_colors(0x44);
                 oval(
-                    (self.player_x * EDITOR_TILE_SIZE as f32) as i32 + ((EDITOR_TILE_SIZE / 4) * 3) - 3,
-                    (self.player_y * EDITOR_TILE_SIZE as f32) as i32 + ((EDITOR_TILE_SIZE / 4) * 3) - 3,
+                    (self.player_x * EDITOR_TILE_SIZE as f32) as i32 + ((EDITOR_TILE_SIZE / 4) * 3)
+                        - 3,
+                    (self.player_y * EDITOR_TILE_SIZE as f32) as i32 + ((EDITOR_TILE_SIZE / 4) * 3)
+                        - 3,
                     6,
                     6,
                 );
@@ -253,7 +259,7 @@ impl State {
                 if just_pressed & BUTTON_LEFT != 0 && self.select_x - 1 != 0 {
                     self.select_x -= 1;
                 }
-                
+
                 if just_pressed & BUTTON_RIGHT != 0 && self.select_x + 1 != (MAP_SIZE - 1) as u8 {
                     self.select_x += 1;
                 }
@@ -289,23 +295,32 @@ impl State {
                 set_draw_colors(0x33);
                 rect(0, (SCREEN_SIZE / 2) as i32, SCREEN_SIZE, SCREEN_SIZE / 2);
 
+                
+                for idx in 0..25600 {
+                    self.depth_buffer.push(0x00).unwrap();
+                }
+
                 // draw the walls
                 let rays = self.get_rays();
 
-                for (idx, ray) in (0_u8..).zip(rays.into_iter()) {
+                for (x, ray) in (0_u8..).zip(rays.into_iter()) {
                     let wall_height = ray.wall_height();
+                    let x = SCREEN_SIZE as i32 - x as i32 - 1;
 
-                    if ray.vertical {
-                        set_draw_colors(0x22);
-                    } else {
-                        set_draw_colors(0x11);
+                    let starting_y: i32 = (SCREEN_SIZE / 2) as i32 - (wall_height / 2.0) as i32;
+                    for y in starting_y..(starting_y + wall_height as i32) {
+                        if y < 160 && y >= 0 {
+                            let idx: usize = (y as usize * SCREEN_SIZE as usize) + x as usize;
+
+                            let byte: u8 = (((ray.distance / 15.0) / 255.0) as u8) << ((idx % 2) * 4);
+                            
+                            self.depth_buffer[idx] |= byte;
+                        }
                     }
+                }
 
-                    vline(
-                        SCREEN_SIZE as i32 - idx as i32 - 1,
-                        (SCREEN_SIZE / 2) as i32 - (wall_height / 2.0) as i32,
-                        wall_height as u32,
-                    );
+                for idx in 0..25600 {
+                    // set_pixel(idx / SCREEN_SIZE as i32, idx % SCREEN_SIZE as i32, 1);
                 }
             }
         }
@@ -381,9 +396,7 @@ impl State {
         let initial_angle = self.player_angle - HALF_FOV;
 
         for num in 0..NUMBER_OF_RAYS {
-            let angle = initial_angle + num as f32 * angle_step;
-
-            if let Err(_err) = rays.push(self.raycast(angle)) {
+            if let Err(_err) = rays.push(self.raycast(initial_angle + num as f32 * angle_step)) {
                 wasm32::unreachable();
             };
         }
@@ -508,7 +521,6 @@ impl State {
     }
 }
 
-// returns
 fn distance(x1: f32, y1: f32, x2: f32, y2: f32) -> f32 {
     sqrtf(powf(y2 - y1, 2.0) + powf(x2 - x1, 2.0))
 }
@@ -516,6 +528,21 @@ fn distance(x1: f32, y1: f32, x2: f32, y2: f32) -> f32 {
 // returns true if the map index is in the map
 fn in_bounds(square: i32) -> bool {
     square > 0 && square < MAP_BUFFER as i32
+}
+
+fn set_pixel(x: i32, y: i32, palette_color: u8) {
+    // The byte index into the framebuffer that contains (x, y)
+    let idx = (y as usize * 160 + x as usize) >> 2;
+
+    // Calculate the bits within the byte that corresponds to our position
+    let shift = (x as u8 & 0b11) << 1;
+    let mask = 0b11 << shift;
+
+    unsafe {
+        let framebuffer = &mut *FRAMEBUFFER;
+
+        framebuffer[idx] = (((palette_color - 1) & 0b11) << shift) | (framebuffer[idx] & !mask);
+    }
 }
 
 // this should be stripped in the wasm-snip process
